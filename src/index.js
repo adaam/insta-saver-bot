@@ -5,6 +5,9 @@ const app = express();
 const { domainCleaner, extractShortCode } = require('./helper');
 const { getStreamData } = require('./apis');
 const axios = require('axios');
+const fs = require('fs');
+const url = require("url");
+const path = require("path");
 
 // Set the server to listen on port 6060
 const PORT = process.env.PORT || 6060;
@@ -54,6 +57,7 @@ bot.on('message', async (msg) => {
 
         // Send the 'Downloading post...' message and store the message ID
         const downloadingMessage = await bot.sendMessage(chatId, 'Downloading ⏳');
+        const fol = './ig/'
 
         let media = streamResponse.data;
         console.log("Media Response ==================== \n\n", media);
@@ -64,10 +68,14 @@ bot.on('message', async (msg) => {
                 let mediaItem = media.mediaList[i];
                 if (mediaItem.mediaType === 'XDTGraphImage') {
                     // Send the image
+                    const url = new URL(mediaItem.mediaUrl);
+                    downloadImage(mediaItem.mediaUrl, fol.concat(path.basename(url.pathname)));
                     await bot.sendPhoto(chatId, mediaItem.mediaUrl);
                 } else if (mediaItem.mediaType === 'XDTGraphVideo') {
                     try {
                         // Send the video
+                        const url = new URL(media.mediaUrl);
+                        downloadImage(media.mediaUrl, fol.concat(path.basename(url.pathname)));
                         await bot.sendVideo(chatId, media.mediaUrl);
                     } catch (error) {
                         console.log("Error while sending video =============== \n", error.response.body);
@@ -79,6 +87,8 @@ bot.on('message', async (msg) => {
         } else if (media.mediaType === 'XDTGraphVideo') {
             try {
                 // Send the video
+                const url = new URL(media.mediaUrl);
+                downloadImage(media.mediaUrl, fol.concat(path.basename(url.pathname)));
                 await bot.sendVideo(chatId, media.mediaUrl);
             } catch (error) {
                 console.log("Error while sending video =============== \n", error.response.body);
@@ -87,6 +97,8 @@ bot.on('message', async (msg) => {
             }
         } else if (media.mediaType === 'XDTGraphImage') {
             // Send the image
+            const url = new URL(media.mediaUrl);
+            downloadImage(media.mediaUrl, fol.concat(path.basename(url.pathname)));
             await bot.sendPhoto(chatId, media.mediaUrl);
         }
 
@@ -97,7 +109,7 @@ bot.on('message', async (msg) => {
         bot.sendChatAction(chatId, 'typing');
 
         // Send the caption
-        await bot.sendMessage(chatId, media.caption);
+        // await bot.sendMessage(chatId, media.caption);
 
         return;
     }
@@ -112,3 +124,12 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
+async function downloadImage(url, filename) {
+    const response = await axios.get(url, { responseType: 'arraybuffer' });
+  
+    fs.writeFile(filename, response.data, (err) => {
+      if (err) throw err;
+      console.log('Image downloaded successfully!');
+    });
+  }

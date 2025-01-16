@@ -115,6 +115,7 @@ const getStreamData = async (shortCode) => {
         let mediaType = responseData.__typename;
         let displayUrl = responseData.display_url;
         let videoUrl = responseData.video_url;
+        let username = responseData.owner.username;
         //let captionText = responseData.edge_media_to_caption.edges[0].node.text;
         // let captionText = 'No cap'
 
@@ -122,6 +123,7 @@ const getStreamData = async (shortCode) => {
         returnResponse.data.mediaUrl = videoUrl || displayUrl;
         returnResponse.data.displayUrl = displayUrl;
         returnResponse.data.mediaType = mediaType;
+        returnResponse.data.username = username;
         // returnResponse.data.caption = captionText;
     
         if(mediaType === 'XDTGraphSidecar') {

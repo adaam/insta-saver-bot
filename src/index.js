@@ -63,6 +63,7 @@ bot.on('message', async (msg) => {
 
         // Extract username and create directory
         const username = media.username;
+        console.log(media.username)
         const userDir = `./ig/${username}`;
         if (!fs.existsSync(userDir)) {
             fs.mkdirSync(userDir, { recursive: true });

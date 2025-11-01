@@ -57,10 +57,17 @@ bot.on('message', async (msg) => {
 
         // Send the 'Downloading post...' message and store the message ID
         const downloadingMessage = await bot.sendMessage(chatId, 'Downloading ⏳');
-        const fol = './ig/'
 
         let media = streamResponse.data;
         console.log("Media Response ==================== \n\n", media);
+
+        // Extract username and create directory
+        const username = media.username;
+        console.log(media.username)
+        const userDir = `./ig/${username}`;
+        if (!fs.existsSync(userDir)) {
+            fs.mkdirSync(userDir, { recursive: true });
+        }
 
         if (media.mediaType === 'XDTGraphSidecar') {
             // Send the carousel
@@ -69,13 +76,13 @@ bot.on('message', async (msg) => {
                 if (mediaItem.mediaType === 'XDTGraphImage') {
                     // Send the image
                     const url = new URL(mediaItem.mediaUrl);
-                    downloadImage(mediaItem.mediaUrl, fol.concat(path.basename(url.pathname)));
+                    downloadImage(mediaItem.mediaUrl, path.join(userDir, path.basename(url.pathname)));
                     await bot.sendPhoto(chatId, mediaItem.mediaUrl);
                 } else if (mediaItem.mediaType === 'XDTGraphVideo') {
                     try {
                         // Send the video
                         const url = new URL(media.mediaUrl);
-                        downloadImage(media.mediaUrl, fol.concat(path.basename(url.pathname)));
+                        downloadImage(media.mediaUrl, path.join(userDir, path.basename(url.pathname)));
                         await bot.sendVideo(chatId, media.mediaUrl);
                     } catch (error) {
                         console.log("Error while sending video =============== \n", error.response.body);
@@ -88,7 +95,7 @@ bot.on('message', async (msg) => {
             try {
                 // Send the video
                 const url = new URL(media.mediaUrl);
-                downloadImage(media.mediaUrl, fol.concat(path.basename(url.pathname)));
+                downloadImage(media.mediaUrl, path.join(userDir, path.basename(url.pathname)));
                 await bot.sendVideo(chatId, media.mediaUrl);
             } catch (error) {
                 console.log("Error while sending video =============== \n", error.response.body);
@@ -98,7 +105,7 @@ bot.on('message', async (msg) => {
         } else if (media.mediaType === 'XDTGraphImage') {
             // Send the image
             const url = new URL(media.mediaUrl);
-            downloadImage(media.mediaUrl, fol.concat(path.basename(url.pathname)));
+            downloadImage(media.mediaUrl, path.join(userDir, path.basename(url.pathname)));
             await bot.sendPhoto(chatId, media.mediaUrl);
         }
 
@@ -132,4 +139,4 @@ async function downloadImage(url, filename) {
       if (err) throw err;
       console.log('Image downloaded successfully!');
     });
-  }
+}

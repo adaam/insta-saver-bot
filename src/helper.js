@@ -2,18 +2,26 @@ const waitFor = async (ms) => {
     return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
-const domainCleaner = (url) => {
+const domainCleaner = (inputUrl) => {
     // Regular expression to check if the URL starts with https://www.instagram.com/
     const instagramRegex = /^https:\/\/www\.instagram\.com\//i;
 
     try {
+        const trimmedUrl = inputUrl.trim();
+
         // Check if the URL is a valid Instagram URL
-        if (!instagramRegex.test(url)) {
+        if (!instagramRegex.test(trimmedUrl)) {
             throw new Error("Please send a valid Instagram URL");
         }
 
+        const parsedUrl = new URL(trimmedUrl);
+
+        // Remove noisy query params that break downstream requests
+        parsedUrl.searchParams.delete('img_index');
+        parsedUrl.searchParams.delete('igsh');
+
         // Return success true and the clean URL
-        return { success: true, data: url };
+        return { success: true, data: parsedUrl.toString() };
     } catch (error) {
         // Return success false and the error message
         return { success: false, data: error.message };

@@ -76,18 +76,18 @@ bot.on('message', async (msg) => {
                 if (mediaItem.mediaType === 'XDTGraphImage') {
                     // Send the image
                     const url = new URL(mediaItem.mediaUrl);
-                    downloadImage(mediaItem.mediaUrl, path.join(userDir, path.basename(url.pathname)));
+                    await downloadImage(mediaItem.mediaUrl, path.join(userDir, path.basename(url.pathname)));
                     await bot.sendPhoto(chatId, mediaItem.mediaUrl);
                 } else if (mediaItem.mediaType === 'XDTGraphVideo') {
                     try {
                         // Send the video
-                        const url = new URL(media.mediaUrl);
-                        downloadImage(media.mediaUrl, path.join(userDir, path.basename(url.pathname)));
-                        await bot.sendVideo(chatId, media.mediaUrl);
+                        const url = new URL(mediaItem.mediaUrl);
+                        await downloadImage(mediaItem.mediaUrl, path.join(userDir, path.basename(url.pathname)));
+                        await bot.sendVideo(chatId, mediaItem.mediaUrl);
                     } catch (error) {
-                        console.log("Error while sending video =============== \n", error.response.body);
+                        console.log("Error while sending video =============== \n", error.response?.body || error.message);
                         // Send the image
-                        await bot.sendMessage(chatId, "Unable to send video 😢 \nPossibly, it might have exceeded the Bot's upload limit. \n\nPlease download the video from below link: \n" + media.mediaUrl);
+                        await bot.sendMessage(chatId, "Unable to send video 😢 \nPossibly, it might have exceeded the Bot's upload limit. \n\nPlease download the video from below link: \n" + mediaItem.mediaUrl);
                     }
                 }
             }
@@ -95,17 +95,17 @@ bot.on('message', async (msg) => {
             try {
                 // Send the video
                 const url = new URL(media.mediaUrl);
-                downloadImage(media.mediaUrl, path.join(userDir, path.basename(url.pathname)));
+                await downloadImage(media.mediaUrl, path.join(userDir, path.basename(url.pathname)));
                 await bot.sendVideo(chatId, media.mediaUrl);
             } catch (error) {
-                console.log("Error while sending video =============== \n", error.response.body);
+                console.log("Error while sending video =============== \n", error.response?.body || error.message);
                 // Send the image
                 await bot.sendMessage(chatId, "Unable to send video 😢 \nPossibly, it might have exceeded the Bot's upload limit. \n\nPlease download the video from below link: \n" + media.mediaUrl);
             }
         } else if (media.mediaType === 'XDTGraphImage') {
             // Send the image
             const url = new URL(media.mediaUrl);
-            downloadImage(media.mediaUrl, path.join(userDir, path.basename(url.pathname)));
+            await downloadImage(media.mediaUrl, path.join(userDir, path.basename(url.pathname)));
             await bot.sendPhoto(chatId, media.mediaUrl);
         }
 
@@ -133,10 +133,26 @@ app.listen(PORT, () => {
 });
 
 async function downloadImage(url, filename) {
-    const response = await axios.get(url, { responseType: 'arraybuffer' });
-  
-    fs.writeFile(filename, response.data, (err) => {
-      if (err) throw err;
-      console.log('Image downloaded successfully!');
-    });
+    try {
+        const response = await axios.get(url, {
+            responseType: 'arraybuffer',
+            headers: {
+                Accept: '*/*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'identity',
+                Referer: 'https://www.instagram.com/',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            },
+            timeout: 15000,
+            validateStatus: (status) => status >= 200 && status < 400
+        });
+
+        await fs.promises.writeFile(filename, response.data);
+        console.log(`Media downloaded successfully to ${filename}`);
+        return true;
+    } catch (error) {
+        const status = error?.response?.status;
+        console.warn(`Failed to download media from ${url}${status ? ` (status ${status})` : ''}`);
+        return false;
+    }
 }

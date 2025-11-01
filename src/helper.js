@@ -19,6 +19,7 @@ const domainCleaner = (inputUrl) => {
         // Remove noisy query params that break downstream requests
         parsedUrl.searchParams.delete('img_index');
         parsedUrl.searchParams.delete('igsh');
+        parsedUrl.searchParams.delete('utm_source');
 
         // Return success true and the clean URL
         return { success: true, data: parsedUrl.toString() };

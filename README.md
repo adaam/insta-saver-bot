@@ -1,88 +1,66 @@
 <p align="center">
-    <img width=200px height=200px src="./assets//icon.png" alt="Project logo">
+    <img width="200" height="200" src="./assets/icon.png" alt="Project logo">
 </p>
 
 <h1 align="center">Insta Saver Bot 🤖</h1>
 
-### Description
+A Telegram bot that accepts a public Instagram Reel or post link, downloads
+its photos and videos to local storage with Instaloader, and uploads the local
+files back to the Telegram chat. No Instagram login is used.
 
-The Insta Saver Bot is a versatile tool (Telegram bot) designed to simplify the process of downloading Instagram content. Leveraging reverse engineering of Instagram's API, this bot can fetch various types of content, including Reels, regular posts, and images. It not only retrieves the content but also preserves the original captions. Additionally, the bot supports carousal posts with multiple items, enhancing its functionality for a seamless user experience.
+## Requirements
 
-***Note:*** *This bot is not affiliated with Instagram in any way. It is an independent project developed for educational purposes only.*
+- Node.js 18 or newer
+- Python 3.10 or newer
+- A Telegram bot token from BotFather
 
-********
+Only public Instagram content that Instaloader can access while logged out is
+supported. Private, deleted, age-restricted, or region-restricted content will
+fail.
 
-### Bot URL
-Try on Telegram: [Insta Saver Bot](https://t.me/instaa_saver_bot)
+## Setup
 
-### Features
+```bash
+npm install
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp example.env .env
+```
 
-1. **Content Variety:** Download Reels, regular posts, and images from Instagram.
-2. **Caption Preservation:** Capture and include original captions with downloaded content.
-3. **Carousal Support:** Seamlessly handle and download multiple items in carousal posts.
+Set `TELEGRAM_TOKEN` in `.env`, then start the bot:
 
-### Future Scope
+```bash
+npm start
+```
 
-- Incorporating support for age-restricted content.
-- Implementing user sessions and Instagram account login functionality.
+Downloaded media are retained locally as:
 
-### Changelog
+```text
+ig/<instagram-username>/<instagram-shortcode>.<extension>
+ig/<instagram-username>/<instagram-shortcode>_<carousel-position>.<extension>
+```
 
-#### v0.1.1
-- Opens URL with Puppeteer to scrape post and caption data.
-- Reliability issues and difficulties in scraping.
-- Waiting for the entire page to load and extracting the video src string.
-- Network timeout issues.
+If Instaloader is installed elsewhere, set `INSTALOADER_BIN` to its executable
+path. `DOWNLOAD_DIR` and `DOWNLOAD_TIMEOUT_MS` can also be configured in `.env`.
 
-#### v0.1.2
-- Utilizes Instagram APIs for faster and more reliable data retrieval.
-- Supports all post formats and efficiently scrapes username, caption, and metadata.
-- Steps:
-    1. Retrieves ownerId using the shortCode (available in every Instagram post).
-    2. Fetches recent posts (max 50) from the user's timeline and matches shortCodes to return the required post content.
-- Issues:
-    1. Works well locally but encounters a 401 error when deployed due to rate limiting.
-    2. Old post support not available (not implemented!).
-    3. Requires multiple API calls and loops through every post from the timeline to match and return content (originally  in the future scope).
+## Bot flow
 
-#### v0.1.3
-- Resolves all previous issues like rate limiting, timeout error etc.
-- Only requires short code to fetch post content.
-- Faster response compared to previous versions, as only necessary calls to Instagram servers are made.
-- Steps:
-    - Extract shortCode from post URL.
-    - POST request for desired content with all required headers and cookies.
-    - Extract post content and caption from json response.
+1. A user sends a public Instagram Reel or post URL.
+2. The bot validates the hostname and extracts the shortcode.
+3. Instaloader obtains the public owner's username and downloads every photo
+   and video without an Instagram session.
+4. The bot uploads one file as a photo/video, or multiple files as Telegram
+   media groups (up to 10 files per group).
+5. Repeated requests for the same shortcode reuse the complete locally cached
+   media list.
 
-### How to Set Up Locally
+## Test
 
-1. **Clone Repository:**
-    ```bash
-    git clone https://github.com/akashvaghela09/insta-saver-bot.git
-    ```
+```bash
+npm test
+```
 
-2. **Navigate to Repository:**
-    ```bash
-    cd insta-saver-bot
-    ```
+This project is not affiliated with Instagram or Telegram. Download and reuse
+content only when you have permission to do so.
 
-3. **Install Packages:**
-    ```bash
-    npm i
-    ```
-
-4. **Rename and Update Environment File:**
-    - Duplicate the `example.env` file and rename it to `.env`.
-    - Update the Telegram token in the `.env` file.
-
-### How to Run
-
-1. **Execute Dev Script:**
-    ```bash
-    npm run dev
-    ```
-
-### Contributor
-- [Akash Vaghela](https://linkedin.com/in/akashvaghela09/)
-
-Feel free to contribute and enhance the functionality of the Insta Saver Bot!
+Original project by [Akash Vaghela](https://linkedin.com/in/akashvaghela09/).

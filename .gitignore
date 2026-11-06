@@ -1,5 +1,8 @@
 # Ignore node_modules directory
 node_modules/
+.venv/
+ig/
+.DS_Store
 
 # Ignore environment files
 .env

@@ -3,122 +3,81 @@ const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 const app = express();
 const { domainCleaner, extractShortCode } = require('./helper');
-const { getStreamData } = require('./apis');
-const axios = require('axios');
-const fs = require('fs');
-const url = require("url");
-const path = require("path");
+const { downloadInstagramMedia } = require('./instaloader');
+const { sendInstagramMedia } = require('./telegramMedia');
 
 // Set the server to listen on port 6060
 const PORT = process.env.PORT || 6060;
 
 const token = process.env.TELEGRAM_TOKEN;
+if (!token) {
+    throw new Error('TELEGRAM_TOKEN is required.');
+}
+
 // Create a bot that uses 'polling' to fetch new updates
 const bot = new TelegramBot(token, { polling: true });
+
+bot.on('polling_error', (error) => {
+    console.error('Telegram polling error:', error.message);
+});
 
 // Listen for any kind of message. There are different kinds of messages.
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const userMessage = msg.text;
 
-    // Show typing status
-    bot.sendChatAction(chatId, 'typing');
+    if (typeof userMessage !== 'string') {
+        return;
+    }
 
     // Process user message
     if (userMessage === '/start') {
-        let first_name = msg.from.first_name || '';
-        let welcomeMessage = `Hi ${first_name}, 👋\nWelcome to Insta Saver Bot! \n\nTo get started, send me the link of Instagram post, Reels, IGTV, etc. to download the video. \n\nHappy downloading!`
+        const firstName = msg.from.first_name || '';
+        const welcomeMessage = `Hi ${firstName}, 👋\nWelcome to Insta Saver Bot!\n\nSend me a public Instagram Reel or post link. I will download its photos or videos locally and upload them here.`;
 
-        // send a message to the chat acknowledging receipt of their message
-        bot.sendMessage(chatId, welcomeMessage);
-    } else {
-        let url = userMessage;
-        let urlResponse = domainCleaner(url);
-
-        if (!urlResponse.success) {
-            bot.sendMessage(chatId, urlResponse.data);
-            return;
-        } else {
-            url = urlResponse.data;
-        }
-
-        let shortCode = extractShortCode(url);
-        console.log(`\n-------------------------------------\nDownloading post for: ${shortCode} 📥`);
-
-        let streamResponse = await getStreamData(shortCode);
-
-        if (!streamResponse.success) {
-            bot.sendMessage(chatId, streamResponse.message);
-            return;
-        }
-
-        // Send 'typing' action
-        bot.sendChatAction(chatId, 'typing');
-
-        // Send the 'Downloading post...' message and store the message ID
-        const downloadingMessage = await bot.sendMessage(chatId, 'Downloading ⏳');
-
-        let media = streamResponse.data;
-        console.log("Media Response ==================== \n\n", media);
-
-        // Extract username and create directory
-        const username = media.username;
-        console.log(media.username)
-        const userDir = `./ig/${username}`;
-        if (!fs.existsSync(userDir)) {
-            fs.mkdirSync(userDir, { recursive: true });
-        }
-
-        if (media.mediaType === 'XDTGraphSidecar') {
-            // Send the carousel
-            for (let i = 0; i < media.mediaList.length; i++) {
-                let mediaItem = media.mediaList[i];
-                if (mediaItem.mediaType === 'XDTGraphImage') {
-                    // Send the image
-                    const url = new URL(mediaItem.mediaUrl);
-                    await downloadImage(mediaItem.mediaUrl, path.join(userDir, path.basename(url.pathname)));
-                    await bot.sendPhoto(chatId, mediaItem.mediaUrl);
-                } else if (mediaItem.mediaType === 'XDTGraphVideo') {
-                    try {
-                        // Send the video
-                        const url = new URL(mediaItem.mediaUrl);
-                        await downloadImage(mediaItem.mediaUrl, path.join(userDir, path.basename(url.pathname)));
-                        await bot.sendVideo(chatId, mediaItem.mediaUrl);
-                    } catch (error) {
-                        console.log("Error while sending video =============== \n", error.response?.body || error.message);
-                        // Send the image
-                        await bot.sendMessage(chatId, "Unable to send video 😢 \nPossibly, it might have exceeded the Bot's upload limit. \n\nPlease download the video from below link: \n" + mediaItem.mediaUrl);
-                    }
-                }
-            }
-        } else if (media.mediaType === 'XDTGraphVideo') {
-            try {
-                // Send the video
-                const url = new URL(media.mediaUrl);
-                await downloadImage(media.mediaUrl, path.join(userDir, path.basename(url.pathname)));
-                await bot.sendVideo(chatId, media.mediaUrl);
-            } catch (error) {
-                console.log("Error while sending video =============== \n", error.response?.body || error.message);
-                // Send the image
-                await bot.sendMessage(chatId, "Unable to send video 😢 \nPossibly, it might have exceeded the Bot's upload limit. \n\nPlease download the video from below link: \n" + media.mediaUrl);
-            }
-        } else if (media.mediaType === 'XDTGraphImage') {
-            // Send the image
-            const url = new URL(media.mediaUrl);
-            await downloadImage(media.mediaUrl, path.join(userDir, path.basename(url.pathname)));
-            await bot.sendPhoto(chatId, media.mediaUrl);
-        }
-
-        // Delete the 'Downloading video...' message
-        await bot.deleteMessage(chatId, downloadingMessage.message_id);
-
-        // Send 'typing' action
-        bot.sendChatAction(chatId, 'typing');
-
-        // Send the caption
-        // await bot.sendMessage(chatId, media.caption);
-
+        await bot.sendMessage(chatId, welcomeMessage);
         return;
+    }
+
+    const urlResponse = domainCleaner(userMessage);
+    if (!urlResponse.success) {
+        await bot.sendMessage(chatId, urlResponse.data);
+        return;
+    }
+
+    const shortCode = extractShortCode(urlResponse.data);
+    if (!shortCode) {
+        await bot.sendMessage(chatId, 'I could not find a Reel or post shortcode in that URL.');
+        return;
+    }
+
+    let downloadingMessage;
+
+    try {
+        await bot.sendChatAction(chatId, 'upload_document');
+        downloadingMessage = await bot.sendMessage(chatId, 'Downloading ⏳');
+
+        console.log(`Downloading Instagram media: ${shortCode}`);
+        const { mediaFiles, username, cached } = await downloadInstagramMedia(shortCode);
+
+        console.log(
+            `${cached ? 'Using cached' : 'Downloaded'} ${mediaFiles.length} media file(s) for @${username}: ${mediaFiles.map(({ filePath }) => filePath).join(', ')}`
+        );
+        await sendInstagramMedia(bot, chatId, mediaFiles, `Instagram: @${username} (${shortCode})`);
+    } catch (error) {
+        console.error(`Failed to process ${shortCode}:`, error.message);
+        await bot.sendMessage(
+            chatId,
+            'Unable to download this post. It may be private, unavailable, or temporarily blocked by Instagram.'
+        );
+    } finally {
+        if (downloadingMessage) {
+            try {
+                await bot.deleteMessage(chatId, downloadingMessage.message_id);
+            } catch (error) {
+                console.warn('Unable to delete status message:', error.message);
+            }
+        }
     }
 });
 
@@ -131,28 +90,3 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
-
-async function downloadImage(url, filename) {
-    try {
-        const response = await axios.get(url, {
-            responseType: 'arraybuffer',
-            headers: {
-                Accept: '*/*',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'identity',
-                Referer: 'https://www.instagram.com/',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            },
-            timeout: 15000,
-            validateStatus: (status) => status >= 200 && status < 400
-        });
-
-        await fs.promises.writeFile(filename, response.data);
-        console.log(`Media downloaded successfully to ${filename}`);
-        return true;
-    } catch (error) {
-        const status = error?.response?.status;
-        console.warn(`Failed to download media from ${url}${status ? ` (status ${status})` : ''}`);
-        return false;
-    }
-}

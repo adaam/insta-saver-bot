@@ -1,27 +1,21 @@
-const waitFor = async (ms) => {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-};
-
 const domainCleaner = (inputUrl) => {
-    // Regular expression to check if the URL starts with https://www.instagram.com/
-    const instagramRegex = /^https:\/\/www\.instagram\.com\//i;
-
     try {
-        const trimmedUrl = inputUrl.trim();
+        if (typeof inputUrl !== 'string') {
+            throw new Error('Please send a valid Instagram URL');
+        }
 
-        // Check if the URL is a valid Instagram URL
-        if (!instagramRegex.test(trimmedUrl)) {
+        const trimmedUrl = inputUrl.trim();
+        const parsedUrl = new URL(trimmedUrl);
+
+        if (
+            parsedUrl.protocol !== 'https:' ||
+            !['instagram.com', 'www.instagram.com'].includes(parsedUrl.hostname.toLowerCase())
+        ) {
             throw new Error("Please send a valid Instagram URL");
         }
 
-        const parsedUrl = new URL(trimmedUrl);
-
-        // Remove noisy query params that break downstream requests
-        parsedUrl.searchParams.delete('img_index');
-        parsedUrl.searchParams.delete('igsh');
-        parsedUrl.searchParams.delete('utm_source');
-
-        // Return success true and the clean URL
+        parsedUrl.search = '';
+        parsedUrl.hash = '';
         return { success: true, data: parsedUrl.toString() };
     } catch (error) {
         // Return success false and the error message
@@ -30,95 +24,12 @@ const domainCleaner = (inputUrl) => {
 }
 
 const extractShortCode = (url) => {
-    // Define a regular expression pattern to match the streamId in the URL
-    const regex = /\/(?:reel|p)\/([a-zA-Z0-9_-]+)/;
-
-    // Use the regular expression to match and extract the streamId
+    const regex = /\/(?:reel|reels|p|tv)\/([a-zA-Z0-9_-]+)/i;
     const match = url.match(regex);
-
-    // Return the extracted streamId or null if not found
     return match ? match[1] : null;
 }
 
-const edgeListCleaner = (streamList) => {
-    let results = [];
-
-    for (let i = 0; i < streamList.length; i++) {
-        let media = streamList[i].node;
-        let mediaType = media.__typename;
-        let ownerId = media?.owner?.id;
-        let shortCode = media.shortcode;
-        let userName = media?.owner?.username;
-        let mediaUrl = '';
-        let mediaList = [];
-        let caption = media.edge_media_to_caption?.edges[0]?.node?.text;
-
-        switch (mediaType) {
-            case 'XDTGraphImage':
-                mediaUrl = media.display_url;
-                break;
-            case 'XDTGraphVideo':
-                mediaUrl = media.video_url;
-                break;
-            case 'XDTGraphSidecar':
-                let list = edgeListCleaner(media.edge_sidecar_to_children.edges);
-                mediaList = [...list];
-                break;
-            default:
-                mediaUrl = media.display_url;
-                break;
-        }
-
-        let resultItem = {}
-
-        if (mediaUrl) {
-            resultItem.mediaUrl = mediaUrl;
-        }
-
-        if (mediaList.length > 0) {
-            resultItem.mediaList = mediaList;
-        }
-
-        if (caption) {
-            resultItem.caption = caption;
-        }
-
-        if (ownerId) {
-            resultItem.ownerId = ownerId;
-        }
-
-        if (shortCode) {
-            resultItem.shortCode = shortCode;
-        }
-
-        if (userName) {
-            resultItem.userName = userName;
-        }
-
-        if (mediaType) {
-            resultItem.mediaType = mediaType;
-        }
-
-        results.push(resultItem);
-    }
-
-    return results;
-}
-
-const findMedia = (mediaList, shortCode) => {
-    let media = mediaList.find((media) => media.shortCode === shortCode);
-
-    if (media) {
-        return media;
-    } else {
-        return null;
-    }
-}
-
 module.exports = {
-    waitFor,
     domainCleaner,
     extractShortCode,
-    edgeListCleaner,
-    findMedia
 };

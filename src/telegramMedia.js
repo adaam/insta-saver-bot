@@ -7,6 +7,7 @@ const CONTENT_TYPES = {
     '.png': 'image/png',
     '.webp': 'image/webp',
 };
+const MAX_GROUP_BYTES = 47_000_000;
 
 const fileOptions = (filePath) => ({
     filename: path.basename(filePath),
@@ -22,9 +23,27 @@ const sendSingleMedia = (bot, chatId, media, caption) => {
 };
 
 const sendMediaFiles = async (bot, chatId, mediaFiles, caption) => {
-    for (let offset = 0; offset < mediaFiles.length; offset += 10) {
-        const group = mediaFiles.slice(offset, offset + 10);
-        const groupCaption = offset === 0 ? caption : undefined;
+    const groups = [];
+    let currentGroup = [];
+    let currentSize = 0;
+    for (const media of mediaFiles) {
+        const fileSize = Number(media.fileSize) || 0;
+        if (currentGroup.length > 0
+            && (currentGroup.length === 10 || currentSize + fileSize > MAX_GROUP_BYTES)) {
+            groups.push(currentGroup);
+            currentGroup = [];
+            currentSize = 0;
+        }
+        currentGroup.push(media);
+        currentSize += fileSize;
+    }
+    if (currentGroup.length > 0) {
+        groups.push(currentGroup);
+    }
+
+    for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
+        const group = groups[groupIndex];
+        const groupCaption = groupIndex === 0 ? caption : undefined;
 
         if (group.length === 1) {
             await sendSingleMedia(bot, chatId, group[0], groupCaption);

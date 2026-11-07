@@ -56,6 +56,13 @@ If the Python tools are installed elsewhere, set `INSTALOADER_BIN`,
 `.env`. `TWITTER_FALLBACK_API` selects or disables the restricted Twitter/X
 metadata fallback.
 
+The public Telegram Bot API accepts multipart video uploads up to 50 MB. The
+bot uses a 47,000,000-byte safety limit and automatically creates a temporary
+FFmpeg copy when a downloaded video is larger. The prepared copy is deleted
+after upload by default; set `TELEGRAM_TRANSCODE_CACHE=true` to keep and reuse
+it as `.telegram.mp4`. Size and timeout are configured with
+`TELEGRAM_MAX_UPLOAD_BYTES` and `TRANSCODE_TIMEOUT_MS`.
+
 ## Bot flow
 
 1. A user sends a public Instagram Reel/post or Twitter/X status URL.
@@ -65,7 +72,8 @@ metadata fallback.
    yt-dlp plus FFmpeg for videos and animated GIFs. Recognized anonymous-access
    failures can use FxTwitter as a metadata fallback.
 4. The bot uploads one file as a photo/video, or multiple files as Telegram
-   media groups (up to 10 files per group).
+   media groups (up to 10 files per group). Oversized videos are compressed
+   before upload, and groups are also split by total upload size.
 5. Repeated requests reuse a validated manifest of the complete local media
    list.
 

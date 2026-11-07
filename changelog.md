@@ -54,6 +54,24 @@ All notable changes to this project are documented in this file.
 - Added FFmpeg to the documented runtime requirements.
 - Added `twitter/` to `.gitignore`.
 
+### Fixed
+
+- Fixed Telegram `413 Request Entity Too Large` failures for downloaded videos
+  above the public Bot API's 50 MB multipart limit.
+- Added `src/telegramPrepare.js` to measure every local file and create a
+  two-pass H.264/AAC `.telegram.mp4` copy when a video exceeds the default
+  47,000,000-byte safety limit. Original downloads are preserved.
+- Added optional prepared-video caching with `TELEGRAM_TRANSCODE_CACHE=true`.
+  It is disabled by default, so generated Telegram upload copies are removed
+  after a successful or failed upload instead of consuming permanent storage.
+- Changed Telegram media grouping to split not only at 10 items, but also when
+  the combined local upload size would exceed the safe request size.
+- Enabled `NTBA_FIX_350` before loading `node-telegram-bot-api`, adopting its
+  future content-type behavior and removing that package's file content-type
+  deprecation warning.
+- Added `TELEGRAM_MAX_UPLOAD_BYTES`, `TRANSCODE_TIMEOUT_MS`, and
+  `TELEGRAM_TRANSCODE_CACHE` configuration.
+
 ### Reliability and safety
 
 - Twitter/X URLs must use HTTPS and an exact supported hostname; lookalike
@@ -85,6 +103,12 @@ All notable changes to this project are documented in this file.
   `sunfish_g/` in original media order.
 - Confirmed all 21 automated tests, JavaScript syntax checks, and
   `git diff --check` pass after the fallback fix.
+- Confirmed a 61,821,313-byte, 262-second, 720×1280 MP4 that previously caused
+  Telegram HTTP 413 is converted to a 45,306,419-byte H.264/AAC MP4 while
+  retaining its duration and resolution. A default-cache-disabled integration
+  test completed in 37.83 seconds and confirmed the prepared file was removed.
+- Expanded the automated suite to 26 passing tests for upload-size preparation,
+  optional transcode caching, temporary-file cleanup, and media-group splitting.
 
 ### Limitations
 

@@ -58,3 +58,20 @@ test('preserves photo and video types in a mixed Twitter/X media group', async (
         { type: 'video', caption: undefined },
     ]);
 });
+
+test('splits a media group when its combined upload size is too large', async () => {
+    const calls = [];
+    const bot = {
+        sendVideo: (_chatId, filePath, options) => calls.push([filePath, options]),
+    };
+
+    await sendInstagramMedia(bot, 123, [
+        { filePath: '/tmp/first.mp4', mediaType: 'video', fileSize: 30_000_000 },
+        { filePath: '/tmp/second.mp4', mediaType: 'video', fileSize: 30_000_000 },
+    ], 'caption');
+
+    assert.deepEqual(calls, [
+        ['/tmp/first.mp4', { caption: 'caption' }],
+        ['/tmp/second.mp4', {}],
+    ]);
+});

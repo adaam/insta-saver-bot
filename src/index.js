@@ -1,10 +1,12 @@
 require('dotenv').config();
+process.env.NTBA_FIX_350 = process.env.NTBA_FIX_350 || '1';
 const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 const app = express();
 const { parseMediaUrl } = require('./helper');
 const { downloadInstagramMedia } = require('./instaloader');
 const { sendMediaFiles } = require('./telegramMedia');
+const { cleanupPreparedMedia, prepareMediaForTelegram } = require('./telegramPrepare');
 const { downloadTwitterMedia } = require('./twitter');
 
 // Set the server to listen on port 6060
@@ -49,6 +51,7 @@ bot.on('message', async (msg) => {
     const mediaId = urlResponse.mediaId;
 
     let downloadingMessage;
+    let uploadFiles = [];
 
     try {
         await bot.sendChatAction(chatId, 'upload_document');
@@ -63,8 +66,9 @@ bot.on('message', async (msg) => {
         console.log(
             `${cached ? 'Using cached' : 'Downloaded'} ${mediaFiles.length} media file(s) for @${username}: ${mediaFiles.map(({ filePath }) => filePath).join(', ')}`
         );
+        uploadFiles = await prepareMediaForTelegram(mediaFiles);
         const sourceName = isInstagram ? 'Instagram' : 'X/Twitter';
-        await sendMediaFiles(bot, chatId, mediaFiles, `${sourceName}: @${username} (${mediaId})`);
+        await sendMediaFiles(bot, chatId, uploadFiles, `${sourceName}: @${username} (${mediaId})`);
     } catch (error) {
         console.error(`Failed to process ${urlResponse.platform} ${mediaId}:`, error.message);
         const errorMessage = urlResponse.platform === 'instagram'
@@ -75,6 +79,11 @@ bot.on('message', async (msg) => {
             errorMessage
         );
     } finally {
+        try {
+            await cleanupPreparedMedia(uploadFiles);
+        } catch (error) {
+            console.warn('Unable to remove temporary Telegram media:', error.message);
+        }
         if (downloadingMessage) {
             try {
                 await bot.deleteMessage(chatId, downloadingMessage.message_id);

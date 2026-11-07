@@ -222,6 +222,20 @@ The caption identifies the source and account:
 X/Twitter: @<username> (<tweet-id>)
 ```
 
+The public Telegram Bot API limits multipart video uploads to 50 MB. Before
+upload, `src/telegramPrepare.js` checks every local video against a default
+47,000,000-byte safety limit. Oversized videos are converted with two-pass
+FFmpeg to H.264 video and AAC audio while retaining the original dimensions
+and duration. The original download remains untouched and the derived
+upload file is deleted after the Telegram request by default. Set
+`TELEGRAM_TRANSCODE_CACHE=true` to retain it as `.telegram.mp4` and reuse it on
+later requests.
+
+Media groups are split when they reach either 10 items or the safe cumulative
+upload size, preventing the combined multipart request from causing HTTP 413.
+`TELEGRAM_MAX_UPLOAD_BYTES`, `TRANSCODE_TIMEOUT_MS`, and
+`TELEGRAM_TRANSCODE_CACHE` configure this behavior.
+
 Expected errors are translated into a short user-facing message covering:
 
 - Tweet has no downloadable photo, video, or animated GIF.
@@ -273,6 +287,7 @@ node --check src/ytdlp.js
 node --check src/gallerydl.js
 node --check src/fxtwitter.js
 node --check src/twitter.js
+node --check src/telegramPrepare.js
 node --check src/telegramMedia.js
 git diff --check
 ```

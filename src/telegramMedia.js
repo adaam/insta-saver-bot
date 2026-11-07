@@ -21,7 +21,7 @@ const sendSingleMedia = (bot, chatId, media, caption) => {
     return bot.sendPhoto(chatId, media.filePath, options, fileOptions(media.filePath));
 };
 
-const sendInstagramMedia = async (bot, chatId, mediaFiles, caption) => {
+const sendMediaFiles = async (bot, chatId, mediaFiles, caption) => {
     for (let offset = 0; offset < mediaFiles.length; offset += 10) {
         const group = mediaFiles.slice(offset, offset + 10);
         const groupCaption = offset === 0 ? caption : undefined;
@@ -41,5 +41,6 @@ const sendInstagramMedia = async (bot, chatId, mediaFiles, caption) => {
 };
 
 module.exports = {
-    sendInstagramMedia,
+    sendInstagramMedia: sendMediaFiles,
+    sendMediaFiles,
 };

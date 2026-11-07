@@ -2,9 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 const app = express();
-const { domainCleaner, extractShortCode } = require('./helper');
+const { parseMediaUrl } = require('./helper');
 const { downloadInstagramMedia } = require('./instaloader');
-const { sendInstagramMedia } = require('./telegramMedia');
+const { sendMediaFiles } = require('./telegramMedia');
+const { downloadTwitterMedia } = require('./twitter');
 
 // Set the server to listen on port 6060
 const PORT = process.env.PORT || 6060;
@@ -33,23 +34,19 @@ bot.on('message', async (msg) => {
     // Process user message
     if (userMessage === '/start') {
         const firstName = msg.from.first_name || '';
-        const welcomeMessage = `Hi ${firstName}, 👋\nWelcome to Insta Saver Bot!\n\nSend me a public Instagram Reel or post link. I will download its photos or videos locally and upload them here.`;
+        const welcomeMessage = `Hi ${firstName}, 👋\nWelcome to Insta Saver Bot!\n\nSend me a public Instagram Reel/post link or a Twitter/X status link. I will download supported photos or videos locally and upload them here.`;
 
         await bot.sendMessage(chatId, welcomeMessage);
         return;
     }
 
-    const urlResponse = domainCleaner(userMessage);
+    const urlResponse = parseMediaUrl(userMessage);
     if (!urlResponse.success) {
         await bot.sendMessage(chatId, urlResponse.data);
         return;
     }
 
-    const shortCode = extractShortCode(urlResponse.data);
-    if (!shortCode) {
-        await bot.sendMessage(chatId, 'I could not find a Reel or post shortcode in that URL.');
-        return;
-    }
+    const mediaId = urlResponse.mediaId;
 
     let downloadingMessage;
 
@@ -57,18 +54,25 @@ bot.on('message', async (msg) => {
         await bot.sendChatAction(chatId, 'upload_document');
         downloadingMessage = await bot.sendMessage(chatId, 'Downloading ⏳');
 
-        console.log(`Downloading Instagram media: ${shortCode}`);
-        const { mediaFiles, username, cached } = await downloadInstagramMedia(shortCode);
+        const isInstagram = urlResponse.platform === 'instagram';
+        console.log(`Downloading ${urlResponse.platform} media: ${mediaId}`);
+        const { mediaFiles, username, cached } = isInstagram
+            ? await downloadInstagramMedia(mediaId)
+            : await downloadTwitterMedia(urlResponse.data, mediaId);
 
         console.log(
             `${cached ? 'Using cached' : 'Downloaded'} ${mediaFiles.length} media file(s) for @${username}: ${mediaFiles.map(({ filePath }) => filePath).join(', ')}`
         );
-        await sendInstagramMedia(bot, chatId, mediaFiles, `Instagram: @${username} (${shortCode})`);
+        const sourceName = isInstagram ? 'Instagram' : 'X/Twitter';
+        await sendMediaFiles(bot, chatId, mediaFiles, `${sourceName}: @${username} (${mediaId})`);
     } catch (error) {
-        console.error(`Failed to process ${shortCode}:`, error.message);
+        console.error(`Failed to process ${urlResponse.platform} ${mediaId}:`, error.message);
+        const errorMessage = urlResponse.platform === 'instagram'
+            ? 'Unable to download this post. It may be private, unavailable, or temporarily blocked by Instagram.'
+            : 'Unable to download this Tweet media. It may be private or unavailable, require login, contain no supported media, or be temporarily blocked by Twitter/X.';
         await bot.sendMessage(
             chatId,
-            'Unable to download this post. It may be private, unavailable, or temporarily blocked by Instagram.'
+            errorMessage
         );
     } finally {
         if (downloadingMessage) {

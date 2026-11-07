@@ -41,3 +41,20 @@ test('splits mixed media into Telegram groups of at most ten', async () => {
     assert.equal(calls[0][1][0].caption, 'caption');
     assert.deepEqual(calls[1], ['photo', '/tmp/Post_11.jpg', {}]);
 });
+
+test('preserves photo and video types in a mixed Twitter/X media group', async () => {
+    const calls = [];
+    const bot = {
+        sendMediaGroup: (_chatId, media) => calls.push(media),
+    };
+
+    await sendInstagramMedia(bot, 123, [
+        { filePath: '/tmp/123_1.jpg', mediaType: 'photo' },
+        { filePath: '/tmp/123_456.mp4', mediaType: 'video' },
+    ], 'X/Twitter: @user (123)');
+
+    assert.deepEqual(calls[0].map(({ type, caption }) => ({ type, caption })), [
+        { type: 'photo', caption: 'X/Twitter: @user (123)' },
+        { type: 'video', caption: undefined },
+    ]);
+});

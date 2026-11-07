@@ -4,19 +4,27 @@
 
 <h1 align="center">Insta Saver Bot 🤖</h1>
 
-A Telegram bot that accepts a public Instagram Reel or post link, downloads
-its photos and videos to local storage with Instaloader, and uploads the local
-files back to the Telegram chat. No Instagram login is used.
+A Telegram bot that accepts public Instagram Reel/post and Twitter/X status
+links, downloads their supported photos and videos to local storage, and
+uploads the local files back to the Telegram chat. No social-media account
+login or browser cookies are used.
 
 ## Requirements
 
 - Node.js 18 or newer
 - Python 3.10 or newer
+- FFmpeg
 - A Telegram bot token from BotFather
 
-Only public Instagram content that Instaloader can access while logged out is
-supported. Private, deleted, age-restricted, or region-restricted content will
-fail.
+Instagram uses Instaloader. Twitter/X uses gallery-dl for photos and yt-dlp for
+videos and animated GIFs. Only public content that these tools can access while
+logged out is supported. Private, deleted, age-restricted, region-restricted,
+or login-required content will fail.
+
+When Twitter/X denies anonymous direct extraction for an otherwise public
+Tweet, the bot can fall back to the public FxTwitter API. This sends the Tweet
+ID (but no account credentials, cookies, or Telegram chat data) to that
+third-party service. Set `TWITTER_FALLBACK_API=off` to disable the fallback.
 
 ## Setup
 
@@ -38,21 +46,31 @@ Downloaded media are retained locally as:
 ```text
 ig/<instagram-username>/<instagram-shortcode>.<extension>
 ig/<instagram-username>/<instagram-shortcode>_<carousel-position>.<extension>
+twitter/<twitter-username>/<tweet-id>_<position>.<image-extension>
+twitter/<twitter-username>/<tweet-id>_<media-id>.mp4
 ```
 
-If Instaloader is installed elsewhere, set `INSTALOADER_BIN` to its executable
-path. `DOWNLOAD_DIR` and `DOWNLOAD_TIMEOUT_MS` can also be configured in `.env`.
+If the Python tools are installed elsewhere, set `INSTALOADER_BIN`,
+`YTDLP_BIN`, or `GALLERYDL_BIN` to their executable paths. `DOWNLOAD_DIR`,
+`TWITTER_DOWNLOAD_DIR`, and `DOWNLOAD_TIMEOUT_MS` can also be configured in
+`.env`. `TWITTER_FALLBACK_API` selects or disables the restricted Twitter/X
+metadata fallback.
 
 ## Bot flow
 
-1. A user sends a public Instagram Reel or post URL.
-2. The bot validates the hostname and extracts the shortcode.
-3. Instaloader obtains the public owner's username and downloads every photo
-   and video without an Instagram session.
+1. A user sends a public Instagram Reel/post or Twitter/X status URL.
+2. The bot validates the exact hostname, removes URL query parameters and
+   fragments, and routes the URL by platform.
+3. Instagram uses Instaloader. Twitter/X uses gallery-dl for static photos and
+   yt-dlp plus FFmpeg for videos and animated GIFs. Recognized anonymous-access
+   failures can use FxTwitter as a metadata fallback.
 4. The bot uploads one file as a photo/video, or multiple files as Telegram
    media groups (up to 10 files per group).
-5. Repeated requests for the same shortcode reuse the complete locally cached
-   media list.
+5. Repeated requests reuse a validated manifest of the complete local media
+   list.
+
+The detailed Twitter/X implementation plan is in
+[`design/20261107_twitter_download.md`](design/20261107_twitter_download.md).
 
 ## Test
 
@@ -60,7 +78,7 @@ path. `DOWNLOAD_DIR` and `DOWNLOAD_TIMEOUT_MS` can also be configured in `.env`.
 npm test
 ```
 
-This project is not affiliated with Instagram or Telegram. Download and reuse
-content only when you have permission to do so.
+This project is not affiliated with Instagram, Twitter/X, or Telegram.
+Download and reuse content only when you have permission to do so.
 
 Original project by [Akash Vaghela](https://linkedin.com/in/akashvaghela09/).

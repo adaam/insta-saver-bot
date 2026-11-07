@@ -2,6 +2,7 @@
 node_modules/
 .venv/
 ig/
+twitter/
 .DS_Store
 
 # Ignore environment files

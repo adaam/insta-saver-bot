@@ -2,6 +2,102 @@
 
 All notable changes to this project are documented in this file.
 
+## 2026-11-07 — Twitter/X photo and video downloads
+
+### Added
+
+- Added platform-aware URL parsing for public `x.com`, `twitter.com`, and
+  `mobile.twitter.com` status URLs.
+- Added automatic removal of URL query parameters and fragments before a
+  Twitter/X URL reaches either downloader.
+- Added yt-dlp 2026.2.4 for public Tweet videos and animated GIFs.
+- Added gallery-dl 1.32.19 for public Tweet photos. It runs with guest access,
+  `--no-input`, no cookies, and video downloading disabled.
+- Added support for photo-only, video-only, multi-photo, multi-video, and mixed
+  photo/video Tweets.
+- Added `src/ytdlp.js` to download and remux Twitter/X videos to MP4, parse
+  machine-readable completed-file records, and validate every output path.
+- Added `src/gallerydl.js` to download original Twitter/X images, discover the
+  owner username, and preserve photo position order.
+- Added `src/twitter.js` to coordinate both downloaders, combine their media,
+  deduplicate concurrent requests, and manage one complete cache manifest per
+  Tweet.
+- Added `src/fxtwitter.js` as a restricted fallback for public Tweets that the
+  direct extractors report as unavailable or login-required. It validates the
+  requested Tweet ID, permits only `pbs.twimg.com` and `video.twimg.com` media
+  URLs, validates response content types, and uses atomic temporary files.
+- Added `TWITTER_FALLBACK_API`, defaulting to `https://api.fxtwitter.com`; set
+  it to `off` to disable third-party fallback.
+- Added Twitter/X storage under:
+
+  ```text
+  twitter/<username>/<tweet-id>_<position>.<image-extension>
+  twitter/<username>/<tweet-id>_<media-id>.mp4
+  twitter/.cache/<tweet-id>.json
+  ```
+
+- Added configuration for `YTDLP_BIN`, `GALLERYDL_BIN`, and
+  `TWITTER_DOWNLOAD_DIR`.
+- Added a detailed implementation and rollback plan in
+  `design/20261107_twitter_download.md`.
+- Added automated coverage for Twitter/X hostname and status-path validation,
+  URL cleanup, Tweet ID validation, photo discovery and ordering, yt-dlp output
+  parsing, no-video classification, path containment, and mixed-media cache
+  loading.
+
+### Changed
+
+- Generalized the Telegram media uploader so Instagram and Twitter/X share the
+  same `sendPhoto`, `sendVideo`, and `sendMediaGroup` behavior.
+- Updated the bot welcome message, routing, logs, captions, and errors for both
+  supported platforms.
+- Added FFmpeg to the documented runtime requirements.
+- Added `twitter/` to `.gitignore`.
+
+### Reliability and safety
+
+- Twitter/X URLs must use HTTPS and an exact supported hostname; lookalike
+  domains and non-numeric Tweet IDs are rejected.
+- yt-dlp and gallery-dl are launched with `spawn()` argument arrays without a
+  shell.
+- Neither downloader receives Twitter/X credentials, cookies, or browser
+  state.
+- The fallback sends only the requested Tweet ID to FxTwitter. It does not send
+  Twitter credentials, browser state, Telegram identity, or chat information.
+- A pure-photo Tweet's explicit yt-dlp `No video formats found` result is
+  treated as an expected empty video list. Other yt-dlp errors remain fatal.
+- A manifest is written only after the photo and video passes finish, and cache
+  entries are accepted only when every path stays within the configured root
+  and points to an existing supported media file.
+
+### Verification
+
+- Confirmed an anonymous four-photo Tweet download for Tweet
+  `894001459754180609` under `perrypumas/`.
+- Confirmed an anonymous video Tweet download for Tweet
+  `1790637656616943991` under `historyinmemes/`.
+- Confirmed an anonymous mixed photo/video Tweet download for Tweet
+  `1577924293023133696` under `carrotsprout_/`.
+- Confirmed yt-dlp output is remuxed to MP4 and gallery-dl images retain their
+  media position.
+- Confirmed fallback download of the otherwise direct-extractor-inaccessible
+  Tweet `2118719623319396658`, producing one MP4 and one JPEG under
+  `sunfish_g/` in original media order.
+- Confirmed all 21 automated tests, JavaScript syntax checks, and
+  `git diff --check` pass after the fallback fix.
+
+### Limitations
+
+- Twitter/X guest access can change or be rate-limited without notice.
+- The optional fallback depends on a third-party public API and discloses the
+  requested Tweet ID to that service.
+- Private, deleted, login-required, age-restricted, or otherwise unavailable
+  Tweets may fail.
+- This first integration accepts individual status URLs only; Spaces,
+  broadcasts, timelines, searches, and arbitrary `t.co` redirects are not
+  routed by the bot.
+- Telegram file-size and media-format limits still apply.
+
 ## 2026-11-07 — Instaloader media download support
 
 Commit: `56b751f feat: support Instagram photo and video downloads`

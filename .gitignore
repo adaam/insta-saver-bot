@@ -3,6 +3,7 @@ node_modules/
 .venv/
 ig/
 twitter/
+failed.txt
 .DS_Store
 
 # Ignore environment files

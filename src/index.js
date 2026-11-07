@@ -3,6 +3,7 @@ process.env.NTBA_FIX_350 = process.env.NTBA_FIX_350 || '1';
 const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 const app = express();
+const { appendFailedDownload } = require('./failureLog');
 const { parseMediaUrl } = require('./helper');
 const { downloadInstagramMedia } = require('./instaloader');
 const { sendMediaFiles } = require('./telegramMedia');
@@ -59,9 +60,20 @@ bot.on('message', async (msg) => {
 
         const isInstagram = urlResponse.platform === 'instagram';
         console.log(`Downloading ${urlResponse.platform} media: ${mediaId}`);
-        const { mediaFiles, username, cached } = isInstagram
-            ? await downloadInstagramMedia(mediaId)
-            : await downloadTwitterMedia(urlResponse.data, mediaId);
+        let downloadResult;
+        try {
+            downloadResult = isInstagram
+                ? await downloadInstagramMedia(mediaId)
+                : await downloadTwitterMedia(urlResponse.data, mediaId);
+        } catch (error) {
+            try {
+                await appendFailedDownload(urlResponse.data);
+            } catch (logError) {
+                console.warn('Unable to record failed download:', logError.message);
+            }
+            throw error;
+        }
+        const { mediaFiles, username, cached } = downloadResult;
 
         console.log(
             `${cached ? 'Using cached' : 'Downloaded'} ${mediaFiles.length} media file(s) for @${username}: ${mediaFiles.map(({ filePath }) => filePath).join(', ')}`

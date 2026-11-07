@@ -44,6 +44,9 @@ All notable changes to this project are documented in this file.
   URL cleanup, Tweet ID validation, photo discovery and ordering, yt-dlp output
   parsing, no-video classification, path containment, and mixed-media cache
   loading.
+- Added a `failed.txt` runtime log for download failures. Each headerless TSV
+  row contains an ISO 8601 timestamp and the cleaned Instagram or Twitter/X
+  URL, while upload and transcoding failures are excluded.
 
 ### Changed
 
@@ -107,8 +110,9 @@ All notable changes to this project are documented in this file.
   Telegram HTTP 413 is converted to a 45,306,419-byte H.264/AAC MP4 while
   retaining its duration and resolution. A default-cache-disabled integration
   test completed in 37.83 seconds and confirmed the prepared file was removed.
-- Expanded the automated suite to 26 passing tests for upload-size preparation,
-  optional transcode caching, temporary-file cleanup, and media-group splitting.
+- Expanded the automated suite to 28 passing tests for upload-size preparation,
+  optional transcode caching, temporary-file cleanup, media-group splitting,
+  and append-only TSV failure logging with control-character sanitization.
 
 ### Limitations
 

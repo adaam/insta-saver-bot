@@ -77,6 +77,15 @@ it as `.telegram.mp4`. Size and timeout are configured with
 5. Repeated requests reuse a validated manifest of the complete local media
    list.
 
+Downloader failures are appended to `failed.txt` as headerless TSV records:
+
+```text
+<ISO-8601 timestamp>\t<cleaned media URL>
+```
+
+Only download failures are recorded; Telegram upload and FFmpeg failures are
+not included in this file.
+
 The detailed Twitter/X implementation plan is in
 [`design/20261107_twitter_download.md`](design/20261107_twitter_download.md).
 

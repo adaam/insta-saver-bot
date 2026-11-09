@@ -2,6 +2,66 @@
 
 All notable changes to this project are documented in this file.
 
+## 2026-11-09 — Telegram video metadata and persistent retries
+
+### Added
+
+- Added ffprobe metadata extraction for every prepared Instagram and Twitter/X
+  video before Telegram upload.
+- Added display-rotation handling. Videos with 90-degree or 270-degree rotate
+  tags or display matrices have their width and height exchanged before the
+  values are sent to Telegram.
+- Added explicit `width`, `height`, `duration`, and `supports_streaming` fields
+  to both single `sendVideo` requests and videos inside `sendMediaGroup`.
+- Added a dedicated Telegram error message when Instaloader explicitly reports
+  HTTP 429 / Too Many Requests. Other Instagram errors retain the generic
+  failure message.
+- Added persistent automatic retries for failed Instagram and Twitter/X
+  downloads. The main bot process retries after one hour and, if necessary,
+  twelve hours after the original failure.
+- Successful retries run the normal cache, preparation, compression, upload,
+  and cleanup path and send the media back to the original Telegram chat.
+- Added a final Telegram notification when both automatic retries fail.
+
+### Changed
+
+- Expanded the headerless `failed.txt` TSV schema to:
+
+  ```text
+  failed_at\turl\tchat_id\tretry_count\tnext_retry_at\tstatus
+  ```
+
+- The main process scans retry state on startup and once per minute, so retries
+  survive the periodic restarts performed by `run.sh` without requiring a
+  second bot process.
+- Interrupted `retrying` records return to `pending` after restart. Existing
+  two-column records remain readable as `legacy_no_chat`, but cannot be retried
+  because they have no Telegram destination.
+
+### Fixed
+
+- Fixed occasional incorrect Telegram video width and height for both
+  Instagram and Twitter/X by sending the locally probed display dimensions
+  instead of relying on Telegram's automatic metadata detection.
+- Preserved the original download or upload error when cleanup of a temporary
+  Telegram transcode fails.
+
+### Verification
+
+- Confirmed the reported Twitter MP4 is 1080x1920 with a 120-second duration
+  and that the new metadata reader returns those exact Telegram values.
+- Confirmed the same reader handles an Instaloader MP4 at 720x1280 and 34
+  seconds.
+- Confirmed Instaloader 4.16 remains the latest release and successfully
+  downloaded a previously failed six-photo post and a previously failed Reel;
+  the earlier burst was consistent with transient latency or throttling rather
+  than a missing upgrade.
+- Added tests for portrait and rotated metadata, single and grouped Telegram
+  uploads, strict 429 classification, six-column TSV state, legacy rows,
+  one-hour recovery, twelve-hour recovery, and terminal retry failure.
+- All 38 automated tests, JavaScript syntax checks, and `git diff --check`
+  pass.
+
 ## 2026-11-07 — Twitter/X photo and video downloads
 
 ### Added

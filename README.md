@@ -77,14 +77,19 @@ it as `.telegram.mp4`. Size and timeout are configured with
 5. Repeated requests reuse a validated manifest of the complete local media
    list.
 
-Downloader failures are appended to `failed.txt` as headerless TSV records:
+Downloader failures are recorded in `failed.txt` as headerless TSV records:
 
 ```text
-<ISO-8601 timestamp>\t<cleaned media URL>
+<failed_at>\t<cleaned_url>\t<chat_id>\t<retry_count>\t<next_retry_at>\t<status>
 ```
 
 Only download failures are recorded; Telegram upload and FFmpeg failures are
-not included in this file.
+not added as new records. New failures are retried automatically after one hour
+and, if needed, twelve hours after the original failure. Successful retries are
+uploaded to the original Telegram chat. The main process scans this file on
+startup and once per minute, so retries survive bot restarts. Legacy two-column
+rows remain readable but cannot be retried because they do not contain a chat
+ID.
 
 The detailed Twitter/X implementation plan is in
 [`design/20261107_twitter_download.md`](design/20261107_twitter_download.md).

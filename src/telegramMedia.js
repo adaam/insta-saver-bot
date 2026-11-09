@@ -15,7 +15,10 @@ const fileOptions = (filePath) => ({
 });
 
 const sendSingleMedia = (bot, chatId, media, caption) => {
-    const options = caption ? { caption } : {};
+    const options = {
+        ...(media.mediaType === 'video' ? media.videoMetadata : {}),
+        ...(caption ? { caption } : {}),
+    };
     if (media.mediaType === 'video') {
         return bot.sendVideo(chatId, media.filePath, options, fileOptions(media.filePath));
     }
@@ -53,6 +56,7 @@ const sendMediaFiles = async (bot, chatId, mediaFiles, caption) => {
         await bot.sendMediaGroup(chatId, group.map((media, index) => ({
             type: media.mediaType,
             media: media.filePath,
+            ...(media.mediaType === 'video' ? media.videoMetadata : {}),
             ...(index === 0 && groupCaption ? { caption: groupCaption } : {}),
             fileOptions: fileOptions(media.filePath),
         })));

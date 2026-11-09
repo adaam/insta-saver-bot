@@ -7,6 +7,7 @@ const {
     calculateVideoBitrate,
     cleanupPreparedMedia,
     isTranscodeCacheEnabled,
+    parseVideoMetadata,
     prepareMediaForTelegram,
 } = require('../src/telegramPrepare');
 
@@ -32,14 +33,68 @@ test('calculates a safe positive video bitrate for a Telegram target size', () =
     assert.ok(bitrate < 1_500_000);
 });
 
+test('parses portrait video metadata for Telegram', () => {
+    assert.deepEqual(parseVideoMetadata(JSON.stringify({
+        streams: [{ width: 1080, height: 1920, duration: '120.020000' }],
+        format: { duration: '120.064000' },
+    })), {
+        width: 1080,
+        height: 1920,
+        duration: 120,
+        supports_streaming: true,
+    });
+});
+
+test('swaps display dimensions for a rotated video', () => {
+    assert.deepEqual(parseVideoMetadata(JSON.stringify({
+        streams: [{
+            width: 1920,
+            height: 1080,
+            tags: { rotate: '90' },
+        }],
+        format: { duration: '30.6' },
+    })), {
+        width: 1080,
+        height: 1920,
+        duration: 31,
+        supports_streaming: true,
+    });
+});
+
+test('prefers display-matrix rotation metadata', () => {
+    assert.deepEqual(parseVideoMetadata(JSON.stringify({
+        streams: [{
+            width: 1920,
+            height: 1080,
+            tags: { rotate: '0' },
+            side_data_list: [{ rotation: -90 }],
+        }],
+        format: { duration: '10' },
+    })), {
+        width: 1080,
+        height: 1920,
+        duration: 10,
+        supports_streaming: true,
+    });
+});
+
 test('keeps media files that are already below the Telegram limit', async (t) => {
     const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'telegram-media-'));
     t.after(() => fs.promises.rm(directory, { recursive: true, force: true }));
     const filePath = path.join(directory, 'video.mp4');
     await fs.promises.writeFile(filePath, 'small video');
 
-    const result = await prepareMediaForTelegram([{ filePath, mediaType: 'video' }]);
-    assert.deepEqual(result, [{ filePath, mediaType: 'video', fileSize: 11 }]);
+    const videoMetadata = {
+        width: 1080,
+        height: 1920,
+        duration: 120,
+        supports_streaming: true,
+    };
+    const result = await prepareMediaForTelegram(
+        [{ filePath, mediaType: 'video' }],
+        { probeVideo: async () => videoMetadata }
+    );
+    assert.deepEqual(result, [{ filePath, mediaType: 'video', fileSize: 11, videoMetadata }]);
 });
 
 test('removes only temporary prepared media', async (t) => {

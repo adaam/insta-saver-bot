@@ -70,6 +70,57 @@ const getVideoDuration = async (filePath) => {
     return Number(stdout);
 };
 
+const parseVideoMetadata = (stdout) => {
+    let result;
+    try {
+        result = JSON.parse(stdout);
+    } catch {
+        throw new Error('ffprobe returned invalid JSON for video metadata.');
+    }
+
+    const stream = result.streams?.[0];
+    let width = Number(stream?.width);
+    let height = Number(stream?.height);
+    const durationSeconds = Number(stream?.duration || result.format?.duration);
+    const sideDataRotation = stream?.side_data_list
+        ?.map(({ rotation }) => Number(rotation))
+        .find(Number.isFinite);
+    const tagRotation = Number(stream?.tags?.rotate);
+    const rotation = Number.isFinite(sideDataRotation)
+        ? sideDataRotation
+        : (Number.isFinite(tagRotation) ? tagRotation : 0);
+    const normalizedRotation = ((Math.round(rotation) % 360) + 360) % 360;
+
+    if (!Number.isInteger(width) || width <= 0
+        || !Number.isInteger(height) || height <= 0
+        || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+        throw new Error('ffprobe returned incomplete video metadata.');
+    }
+
+    if (normalizedRotation === 90 || normalizedRotation === 270) {
+        [width, height] = [height, width];
+    }
+
+    return {
+        width,
+        height,
+        duration: Math.max(1, Math.round(durationSeconds)),
+        supports_streaming: true,
+    };
+};
+
+const getVideoMetadata = async (filePath) => {
+    const ffprobe = process.env.FFPROBE_BIN || 'ffprobe';
+    const stdout = await runCommand(ffprobe, [
+        '-v', 'error',
+        '-select_streams', 'v:0',
+        '-show_entries', 'stream=width,height,duration:stream_tags=rotate:stream_side_data=rotation:format=duration',
+        '-of', 'json',
+        filePath,
+    ], 30000);
+    return parseVideoMetadata(stdout);
+};
+
 const removePassLogs = async (passLogPath) => {
     const directory = path.dirname(passLogPath);
     const prefix = path.basename(passLogPath);
@@ -153,15 +204,24 @@ const cleanupPreparedMedia = async (mediaFiles) => {
         .map(({ filePath }) => fs.promises.rm(filePath, { force: true })));
 };
 
-const prepareMediaForTelegram = async (mediaFiles) => {
+const prepareMediaForTelegram = async (mediaFiles, options = {}) => {
+    const probeVideo = options.probeVideo || getVideoMetadata;
     const prepared = [];
     try {
         for (const media of mediaFiles) {
             const fileSize = fs.statSync(media.filePath).size;
+            let preparedMedia;
             if (media.mediaType === 'video' && fileSize > maxUploadBytes()) {
-                prepared.push(await compressVideo(media.filePath, maxUploadBytes()));
+                preparedMedia = await compressVideo(media.filePath, maxUploadBytes());
             } else {
-                prepared.push({ ...media, fileSize });
+                preparedMedia = { ...media, fileSize };
+            }
+            prepared.push(preparedMedia);
+            if (preparedMedia.mediaType === 'video') {
+                prepared[prepared.length - 1] = {
+                    ...preparedMedia,
+                    videoMetadata: await probeVideo(preparedMedia.filePath),
+                };
             }
         }
         return prepared;
@@ -174,6 +234,8 @@ const prepareMediaForTelegram = async (mediaFiles) => {
 module.exports = {
     calculateVideoBitrate,
     cleanupPreparedMedia,
+    getVideoMetadata,
     isTranscodeCacheEnabled,
+    parseVideoMetadata,
     prepareMediaForTelegram,
 };

@@ -15,6 +15,12 @@ const isValidShortCode = (shortCode) => (
     typeof shortCode === 'string' && /^[A-Za-z0-9_-]+$/.test(shortCode)
 );
 
+const isInstagramRateLimitError = (error) => {
+    const details = error && error.message ? error.message : String(error || '');
+    return /\b429\s+Too Many Requests\b|\bToo Many Requests\b|\bHTTP(?: status)?\s*429\b|\bstatus(?: code)?\s*429\b/i
+        .test(details);
+};
+
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const findInstaloaderBinary = () => {
@@ -224,5 +230,6 @@ const downloadInstagramMedia = (shortCode) => {
 module.exports = {
     downloadInstagramMedia,
     findDownloadedMedia,
+    isInstagramRateLimitError,
     isValidShortCode,
 };

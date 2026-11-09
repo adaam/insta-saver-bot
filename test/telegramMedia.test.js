@@ -75,3 +75,52 @@ test('splits a media group when its combined upload size is too large', async ()
         ['/tmp/second.mp4', {}],
     ]);
 });
+
+test('sends probed metadata with a single Telegram video', async () => {
+    const calls = [];
+    const bot = {
+        sendVideo: (...args) => calls.push(args),
+    };
+    const videoMetadata = {
+        width: 1080,
+        height: 1920,
+        duration: 120,
+        supports_streaming: true,
+    };
+
+    await sendInstagramMedia(bot, 123, [{
+        filePath: '/tmp/portrait.mp4',
+        mediaType: 'video',
+        videoMetadata,
+    }], 'caption');
+
+    assert.deepEqual(calls[0][2], { ...videoMetadata, caption: 'caption' });
+});
+
+test('sends probed metadata with Telegram media-group videos', async () => {
+    const calls = [];
+    const bot = {
+        sendMediaGroup: (_chatId, media) => calls.push(media),
+    };
+    const videoMetadata = {
+        width: 1920,
+        height: 1080,
+        duration: 30,
+        supports_streaming: true,
+    };
+
+    await sendInstagramMedia(bot, 123, [
+        { filePath: '/tmp/photo.jpg', mediaType: 'photo' },
+        { filePath: '/tmp/landscape.mp4', mediaType: 'video', videoMetadata },
+    ], 'caption');
+
+    assert.deepEqual(
+        {
+            width: calls[0][1].width,
+            height: calls[0][1].height,
+            duration: calls[0][1].duration,
+            supports_streaming: calls[0][1].supports_streaming,
+        },
+        videoMetadata
+    );
+});

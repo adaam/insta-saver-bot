@@ -3,11 +3,26 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { findDownloadedMedia, isValidShortCode } = require('../src/instaloader');
+const {
+    findDownloadedMedia,
+    isInstagramRateLimitError,
+    isValidShortCode,
+} = require('../src/instaloader');
 
 test('accepts safe Instagram shortcodes only', () => {
     assert.equal(isValidShortCode('Abc_123-'), true);
     assert.equal(isValidShortCode('../post'), false);
+});
+
+test('recognizes explicit Instagram HTTP 429 errors', () => {
+    assert.equal(isInstagramRateLimitError(new Error(
+        'JSON Query: 429 Too Many Requests when accessing https://www.instagram.com/graphql/query'
+    )), true);
+    assert.equal(isInstagramRateLimitError(new Error('HTTP status 429')), true);
+    assert.equal(isInstagramRateLimitError(new Error(
+        '400 Bad Request - fail status, message feedback_required'
+    )), false);
+    assert.equal(isInstagramRateLimitError(new Error('Connection timed out')), false);
 });
 
 test('finds and orders photo/video carousel files', async (t) => {
